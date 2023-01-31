@@ -1,0 +1,10 @@
+---
+environment: pi
+data_path: .
+servers:
+    - name: pi
+      count: 0
+      ssh_hostname: raspberrypi
+      ssh_port: 22
+      ssh_key: ~/.ssh/id_rsa
+      ssh_user: pi

@@ -1,0 +1,17 @@
+[Unit]
+Description=Vulpes
+Wants=network.target
+After=network-online.target
+
+[Service]
+Restart=on-failure
+TimeoutStopSec=70
+WorkingDirectory=/opt/vulpes
+ExecStart=python3 vulpes.py --model mobilenet_v2.tflite --label coco_labels.txt
+{% for key, value in ENVIRONMENT.items()|sort -%}
+Environment="{{ key }}={{ value }}"
+{% endfor %}
+Type=exec
+
+[Install]
+WantedBy=multi-user.target default.target

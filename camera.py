@@ -7,12 +7,12 @@ from paracrine.fs import (
     run_with_marker,
     set_file_contents_from_template,
 )
+from paracrine.systemd import link_service, systemd_set
 
 
 def core_run():
     folder = Path("/opt/vulpes")
     make_directory(folder)
-    # wget https://raw.githubusercontent.com/raspberrypi/picamera2/main/examples/tensorflow/real_time_with_labels.py
     download(
         "https://raw.githubusercontent.com/raspberrypi/picamera2/main/examples/tensorflow/coco_labels.txt",
         folder.joinpath("coco_labels.txt"),
@@ -43,4 +43,15 @@ def core_run():
         deps=[requirements],
     )
 
-    # python3 real_time_with_labels.py --model mobilenet_v2.tflite --label coco_labels.txt
+    service_file = folder.joinpath("vulpes.service")
+    camera_changes = set_file_contents_from_template(
+        folder.joinpath("vulpes.py"), "vulpes.py"
+    )
+    camera_changes = (
+        set_file_contents_from_template(
+            service_file, "vulpes.service.j2", ENVIRONMENT={"PYTHONUNBUFFERED": "1"}
+        )
+        or camera_changes
+    )
+    camera_changes = link_service(service_file) or camera_changes
+    systemd_set("vulpes", enabled=True, running=True, restart=camera_changes)

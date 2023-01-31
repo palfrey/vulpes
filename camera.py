@@ -5,6 +5,7 @@ from paracrine.fs import (
     download,
     make_directory,
     run_with_marker,
+    set_file_contents,
     set_file_contents_from_template,
 )
 from paracrine.systemd import link_service, systemd_set
@@ -44,14 +45,15 @@ def core_run():
     )
 
     service_file = folder.joinpath("vulpes.service")
-    camera_changes = set_file_contents_from_template(
-        folder.joinpath("vulpes.py"), "vulpes.py"
+    camera_changes = any(
+        [
+            set_file_contents_from_template(folder.joinpath("vulpes.py"), "vulpes.py"),
+            set_file_contents_from_template(folder.joinpath("server.py"), "server.py"),
+            set_file_contents(folder.joinpath("__init__.py"), ""),
+            set_file_contents_from_template(
+                service_file, "vulpes.service.j2", ENVIRONMENT={"PYTHONUNBUFFERED": "1"}
+            ),
+            link_service(service_file),
+        ]
     )
-    camera_changes = (
-        set_file_contents_from_template(
-            service_file, "vulpes.service.j2", ENVIRONMENT={"PYTHONUNBUFFERED": "1"}
-        )
-        or camera_changes
-    )
-    camera_changes = link_service(service_file) or camera_changes
     systemd_set("vulpes", enabled=True, running=True, restart=camera_changes)

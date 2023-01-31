@@ -22,6 +22,7 @@
 # $ python3 real_time_with_labels.py --model mobilenet_v2.tflite --label coco_labels.txt
 
 import argparse
+import threading
 import time
 
 import cv2
@@ -29,6 +30,7 @@ import libcamera
 import numpy as np
 import tflite_runtime.interpreter as tflite
 from picamera2 import MappedArray, Picamera2
+from server import run_server
 
 normalSize = (640, 480)
 lowresSize = (320, 240)
@@ -49,7 +51,6 @@ def ReadLabelFile(file_path):
 def DrawRectangles(request: libcamera.Request):
     with MappedArray(request, "main") as m:
         for rect in rectangles:
-            print("rect", rect)
             rect_start = (int(rect[0] * 2) - 5, int(rect[1] * 2) - 5)
             rect_end = (int(rect[2] * 2) + 5, int(rect[3] * 2) + 5)
             cv2.rectangle(m.array, rect_start, rect_end, (0, 255, 0, 0))
@@ -68,7 +69,7 @@ def DrawRectangles(request: libcamera.Request):
                 )
 
 
-def InferenceTensorFlow(image, model, output, label=None):
+def InferenceTensorFlow(image, model, label=None):
     global rectangles
 
     if label:
@@ -110,8 +111,7 @@ def InferenceTensorFlow(image, model, output, label=None):
         top, left, bottom, right = detected_boxes[0][i]
         classId = int(detected_classes[0][i])
         score = detected_scores[0][i]
-        print(labels[classId], "score = ", score)
-        if score > 0.5:
+        if score > 0.3:
             xmin = left * initial_w
             ymin = bottom * initial_h
             xmax = right * initial_w
@@ -125,18 +125,20 @@ def InferenceTensorFlow(image, model, output, label=None):
                 print("score = ", score)
 
 
+def markup_thread(picam2: Picamera2, model: str, label_file: str):
+    stride = picam2.stream_configuration("lores")["stride"]
+    while True:
+        buffer = picam2.capture_buffer("lores")
+        grey = buffer[: stride * lowresSize[1]].reshape((lowresSize[1], stride))
+        InferenceTensorFlow(grey, model, label_file)
+        time.sleep(0.1)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", help="Path of the detection model.", required=True)
     parser.add_argument("--label", help="Path of the labels file.")
-    parser.add_argument("--output", help="File path of the output image.")
     args = parser.parse_args()
-
-    if args.output:
-        output_file = args.output
-    else:
-        output_file = "out.jpg"
-
     if args.label:
         label_file = args.label
     else:
@@ -150,18 +152,14 @@ def main():
     )
     picam2.configure(config)
 
-    stride = picam2.stream_configuration("lores")["stride"]
     picam2.post_callback = DrawRectangles
 
-    picam2.start()
-
-    while True:
-        print("capture")
-        buffer = picam2.capture_buffer("lores")
-        grey = buffer[: stride * lowresSize[1]].reshape((lowresSize[1], stride))
-        InferenceTensorFlow(grey, args.model, output_file, label_file)
-        picam2.capture_file("image.jpg")
-        time.sleep(1)
+    # picam2.start()
+    markup = threading.Thread(
+        target=markup_thread, args=(picam2, args.model, label_file)
+    )
+    markup.start()
+    run_server(picam2)
 
 
 if __name__ == "__main__":

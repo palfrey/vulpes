@@ -1,0 +1,5 @@
+---
+environments:
+    pi:
+        WIFI_SSID: <wifi ssid>
+        WIFI_PASSWORD: <wifi password>

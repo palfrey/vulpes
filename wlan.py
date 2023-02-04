@@ -1,7 +1,7 @@
 import json
 
 from paracrine.config import build_config, core_config
-from paracrine.debian import apt_install
+from paracrine.debian import apt_install, set_alternative
 from paracrine.fs import run_command, set_file_contents, set_file_contents_from_template
 from paracrine.systemd import systemd_set
 
@@ -30,6 +30,7 @@ def core_run():
         "/etc/modprobe.d/brcmfmac.conf",
         "options brcmfmac roamoff=1 feature_disable=0x82000",
     )
+    set_alternative("regulatory.db", "/usr/lib/firmware/regulatory.db-upstream")
 
     wifi_changes = set_file_contents_from_template(
         "/etc/wpa_supplicant/wlan0.conf", "wpa_supplicant.conf.j2", **LOCAL

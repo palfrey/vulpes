@@ -1,7 +1,8 @@
 import json
 
 from paracrine.config import build_config, core_config
-from paracrine.fs import run_command, set_file_contents_from_template
+from paracrine.debian import apt_install
+from paracrine.fs import run_command, set_file_contents, set_file_contents_from_template
 from paracrine.systemd import systemd_set
 
 
@@ -17,6 +18,19 @@ def core_run():
         run_command(f"rfkill unblock {wlan['id']}")
 
     systemd_set("wpa_supplicant", running=False, enabled=False)
+
+    # Bug. See https://raspberrypi.stackexchange.com/questions/91659/rpi-3b-wlan0-wifi-adapter-broken/140524#140524
+    apt_install(
+        {
+            "raspberrypi-bootloader": "1:1.20230106-1",
+            "raspberrypi-kernel": "1:1.20230106-1",
+        }
+    )
+    set_file_contents(
+        "/etc/modprobe.d/brcmfmac.conf",
+        "options brcmfmac roamoff=1 feature_disable=0x82000",
+    )
+
     wifi_changes = set_file_contents_from_template(
         "/etc/wpa_supplicant/wlan0.conf", "wpa_supplicant.conf.j2", **LOCAL
     )

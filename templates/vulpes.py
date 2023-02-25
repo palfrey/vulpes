@@ -111,7 +111,7 @@ def InferenceTensorFlow(image, model, label=None):
         top, left, bottom, right = detected_boxes[0][i]
         classId = int(detected_classes[0][i])
         score = detected_scores[0][i]
-        if score > 0.3:
+        if score > 0.6:
             xmin = left * initial_w
             ymin = bottom * initial_h
             xmax = right * initial_w

@@ -42,3 +42,12 @@ def core_run():
     systemd_set(
         "networking", restart=interfaces_changes or operstate == "down" or wifi_changes
     )
+
+    apt_install(["watchdog"])
+
+    watchdog_changes = set_file_contents_from_template(
+        "/etc/watchdog.conf", "watchdog.conf.j2"
+    )
+
+    systemd_set("watchdog", restart=watchdog_changes, enabled=True, running=True)
+    systemd_set("ModemManager", enabled=False, running=False)
